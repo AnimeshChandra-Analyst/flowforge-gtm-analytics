@@ -1,0 +1,67 @@
+name: Daily FlowForge Sync
+
+on:
+  schedule:
+    - cron: '0 5 * * *'   # 05:00 UTC = 07:00 Stockholm
+  workflow_dispatch:       # lets you run it manually from the Actions tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write GCP service account key
+        run: echo '${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}' > gcp_key.json
+
+      - name: Write dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << PROFILES
+          flowforge:
+            target: dev
+            outputs:
+              dev:
+                type: bigquery
+                method: service-account
+                project: ${{ secrets.BQ_PROJECT }}
+                dataset: flowforge_dbt
+                keyfile: $GITHUB_WORKSPACE/gcp_key.json
+                location: EU
+                threads: 4
+          PROFILES
+
+      - name: Extract from HubSpot and Stripe
+        env:
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp_key.json
+          BQ_PROJECT: ${{ secrets.BQ_PROJECT }}
+          BQ_RAW_DATASET: ${{ secrets.BQ_RAW_DATASET }}
+        run: python scripts/extract.py
+
+      - name: Run dbt models
+        run: |
+          cd flowforge
+          dbt run
+
+      - name: Run dbt tests
+        run: |
+          cd flowforge
+          dbt test
+
+      - name: Remove service account key
+        if: always()
+        run: rm -f gcp_key.json

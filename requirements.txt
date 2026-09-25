@@ -1,0 +1,9 @@
+stripe
+hubspot-api-client
+faker
+google-cloud-bigquery
+pandas
+pyarrow
+db-dtypes
+python-dotenv
+dbt-bigquery
