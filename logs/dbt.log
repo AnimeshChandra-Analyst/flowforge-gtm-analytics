@@ -1,0 +1,80 @@
+[0m22:29:05.758988 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001A0FBC6B770>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001A0F9A9D090>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001A0FE7B39D0>]}
+
+
+============================== 22:29:05.780070 | 89c91398-9dc8-4668-ab87-4e1a515afa46 ==============================
+[0m22:29:05.780070 [info ] [MainThread]: Running with dbt=1.12.5
+[0m22:29:05.781987 [debug] [MainThread]: running dbt with arguments {'maximum_seed_size_mib': '1', 'no_print': 'None', 'static_parser': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'target_path': 'None', 'version_check': 'True', 'printer_width': '80', 'write_json': 'True', 'empty': 'None', 'log_cache_events': 'False', 'introspect': 'True', 'cache_selected_only': 'False', 'fail_fast': 'False', 'debug': 'False', 'log_format': 'default', 'profiles_dir': 'C:\\Users\\anime\\.dbt', 'send_anonymous_usage_stats': 'True', 'quiet': 'False', 'warn_error': 'None', 'partial_parse': 'True', 'use_colors': 'True', 'hints_enabled': 'True', 'invocation_command': 'dbt init flowforge', 'use_experimental_parser': 'False', 'indirect_selection': 'eager', 'log_path': 'logs'}
+[0m22:29:05.825515 [debug] [MainThread]: Starter project path: A:\flowforge-gtm-analytics\.venv\Lib\site-packages\dbt\include\starter_project
+[0m22:29:05.848736 [info ] [MainThread]: Setting up your profile.
+[0m22:31:12.062557 [info ] [MainThread]: Profile flowforge written to C:\Users\anime\.dbt\profiles.yml using target's profile_template.yml and your supplied values.
+[0m22:31:12.112962 [info ] [MainThread]: Running dbt debug to validate the project...
+[0m22:31:12.118760 [info ] [MainThread]: dbt version: 1.12.5
+[0m22:31:12.121109 [info ] [MainThread]: python version: 3.14.4
+[0m22:31:12.122160 [info ] [MainThread]: python path: A:\flowforge-gtm-analytics\.venv\Scripts\python.exe
+[0m22:31:12.126330 [info ] [MainThread]: os info: Windows-11-10.0.26200-SP0
+[0m22:31:12.251811 [info ] [MainThread]: Using profiles dir at C:\Users\anime\.dbt
+[0m22:31:12.252449 [info ] [MainThread]: Using profiles.yml file at C:\Users\anime\.dbt\profiles.yml
+[0m22:31:12.253007 [info ] [MainThread]: Using dbt_project.yml file at A:\flowforge-gtm-analytics\flowforge\dbt_project.yml
+[0m22:31:12.253539 [info ] [MainThread]: adapter type: bigquery
+[0m22:31:12.254049 [info ] [MainThread]: adapter version: 1.12.1
+[0m22:31:12.405995 [info ] [MainThread]: Configuration:
+[0m22:31:12.406638 [info ] [MainThread]:   profiles.yml file [[32mOK found and valid[0m]
+[0m22:31:12.407175 [info ] [MainThread]:   dbt_project.yml file [[32mOK found and valid[0m]
+[0m22:31:12.407858 [info ] [MainThread]: Required dependencies:
+[0m22:31:12.408509 [debug] [MainThread]: Executing "git --help"
+[0m22:31:12.467474 [debug] [MainThread]: STDOUT: "b"usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]\n           [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path]\n           [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--no-lazy-fetch]\n           [--no-optional-locks] [--no-advice] [--bare] [--git-dir=<path>]\n           [--work-tree=<path>] [--namespace=<name>] [--config-env=<name>=<envvar>]\n           <command> [<args>]\n\nThese are common Git commands used in various situations:\n\nstart a working area (see also: git help tutorial)\n   clone      Clone a repository into a new directory\n   init       Create an empty Git repository or reinitialize an existing one\n\nwork on the current change (see also: git help everyday)\n   add        Add file contents to the index\n   mv         Move or rename a file, a directory, or a symlink\n   restore    Restore working tree files\n   rm         Remove files from the working tree and from the index\n\nexamine the history and state (see also: git help revisions)\n   bisect     Use binary search to find the commit that introduced a bug\n   diff       Show changes between commits, commit and working tree, etc\n   grep       Print lines matching a pattern\n   log        Show commit logs\n   show       Show various types of objects\n   status     Show the working tree status\n\ngrow, mark and tweak your common history\n   backfill   Download missing objects in a partial clone\n   branch     List, create, or delete branches\n   commit     Record changes to the repository\n   merge      Join two or more development histories together\n   rebase     Reapply commits on top of another base tip\n   reset      Reset current HEAD to the specified state\n   switch     Switch branches\n   tag        Create, list, delete or verify a tag object signed with GPG\n\ncollaborate (see also: git help workflows)\n   fetch      Download objects and refs from another repository\n   pull       Fetch from and integrate with another repository or a local branch\n   push       Update remote refs along with associated objects\n\n'git help -a' and 'git help -g' list available subcommands and some\nconcept guides. See 'git help <command>' or 'git help <concept>'\nto read about a specific subcommand or concept.\nSee 'git help git' for an overview of the system.\n""
+[0m22:31:12.468092 [debug] [MainThread]: STDERR: "b''"
+[0m22:31:12.468615 [info ] [MainThread]:  - git [[32mOK found[0m]
+
+[0m22:31:12.469155 [info ] [MainThread]: Connection:
+[0m22:31:12.469720 [info ] [MainThread]:   method: service-account
+[0m22:31:12.470251 [info ] [MainThread]:   database: flowforge-509421
+[0m22:31:12.471103 [info ] [MainThread]:   execution_project: flowforge-509421
+[0m22:31:12.471787 [info ] [MainThread]:   schema: flowforge_dbt
+[0m22:31:12.472305 [info ] [MainThread]:   location: EU
+[0m22:31:12.472918 [info ] [MainThread]:   priority: interactive
+[0m22:31:12.473418 [info ] [MainThread]:   maximum_bytes_billed: None
+[0m22:31:12.473933 [info ] [MainThread]:   reservation: None
+[0m22:31:12.474578 [info ] [MainThread]:   impersonate_service_account: None
+[0m22:31:12.475223 [info ] [MainThread]:   job_retry_deadline_seconds: None
+[0m22:31:12.475795 [info ] [MainThread]:   job_retries: 1
+[0m22:31:12.476274 [info ] [MainThread]:   job_creation_timeout_seconds: None
+[0m22:31:12.476756 [info ] [MainThread]:   job_execution_timeout_seconds: 300
+[0m22:31:12.477226 [info ] [MainThread]:   job_link_info_level_log: False
+[0m22:31:12.477693 [info ] [MainThread]:   timeout_seconds: 300
+[0m22:31:12.478158 [info ] [MainThread]:   client_id: None
+[0m22:31:12.478621 [info ] [MainThread]:   token_uri: None
+[0m22:31:12.479097 [info ] [MainThread]:   compute_region: None
+[0m22:31:12.479588 [info ] [MainThread]:   dataproc_cluster_name: None
+[0m22:31:12.480068 [info ] [MainThread]:   gcs_bucket: None
+[0m22:31:12.480564 [info ] [MainThread]:   dataproc_batch: None
+[0m22:31:12.481291 [info ] [MainThread]: Registered adapter: bigquery=1.12.1
+[0m22:31:13.139803 [debug] [MainThread]: Acquiring new bigquery connection 'debug'
+[0m22:31:13.140467 [debug] [MainThread]: On debug: select 1 as id
+[0m22:31:13.141043 [debug] [MainThread]: Opening a new connection, currently in state init
+[0m22:31:14.676069 [debug] [MainThread]: BigQuery adapter: https://console.cloud.google.com/bigquery?project=flowforge-509421&j=bq:EU:3a2c67fd-cf86-4394-8d3a-84443cf9fa3c&page=queryresults
+[0m22:31:14.905278 [debug] [MainThread]: SQL status: OK in 0.228 seconds
+[0m22:31:17.834255 [info ] [MainThread]:   Connection test: [[32mOK connection ok[0m]
+
+[0m22:31:17.836276 [info ] [MainThread]: [32mAll checks passed![0m
+[0m22:31:17.837977 [info ] [MainThread]: Your new dbt project "flowforge" was created!
+Initialized new project in A:\flowforge-gtm-analytics\flowforge\flowforge
+
+For more information on how to configure the profiles.yml file,
+please consult the dbt documentation here:
+
+  https://docs.getdbt.com/docs/configure-your-profile
+
+One more thing:
+
+Need help? Don't hesitate to reach out to us via GitHub issues or on Slack:
+
+  https://community.getdbt.com/
+
+Happy modeling!
+
+[0m22:31:17.841612 [debug] [MainThread]: Command `dbt init` succeeded at 22:31:17.841165 after 132.35 seconds
+[0m22:31:17.842799 [debug] [MainThread]: Connection 'debug' was properly closed.
+[0m22:31:17.844070 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001A0FE73F490>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001A0F979D7F0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001A0912BE360>]}
+[0m22:31:17.845475 [debug] [MainThread]: Flushing usage events
+[0m22:31:18.537444 [debug] [MainThread]: An error was encountered while trying to flush usage events

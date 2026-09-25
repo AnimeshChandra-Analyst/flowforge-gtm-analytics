@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: hubspot
+    database: flowforge-509421
+    schema: flowforge_raw
+    tables:
+      - name: raw_hubspot_companies
+      - name: raw_hubspot_contacts
+      - name: raw_hubspot_deals

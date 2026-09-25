@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: product
+    database: flowforge-509421
+    schema: flowforge_raw
+    tables:
+      - name: raw_usage_events

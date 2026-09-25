@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: stripe
+    database: flowforge-509421
+    schema: flowforge_raw
+    tables:
+      - name: raw_stripe_customers
+      - name: raw_stripe_subscriptions
+      - name: raw_stripe_invoices
