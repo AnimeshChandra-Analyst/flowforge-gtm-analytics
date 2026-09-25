@@ -42,6 +42,19 @@ jobs:
                 location: EU
                 threads: 4
           PROFILES
+    
+      - name: Simulate one day
+        env:
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp_key.json
+          BQ_PROJECT: ${{ secrets.BQ_PROJECT }}
+          BQ_RAW_DATASET: ${{ secrets.BQ_RAW_DATASET }}
+          PRICE_FREE: ${{ secrets.PRICE_FREE }}
+          PRICE_PRO: ${{ secrets.PRICE_PRO }}
+          PRICE_TEAM: ${{ secrets.PRICE_TEAM }}
+          PRICE_ENTERPRISE: ${{ secrets.PRICE_ENTERPRISE }}
+        run: python scripts/daily_simulate.py      
 
       - name: Extract from HubSpot and Stripe
         env:
