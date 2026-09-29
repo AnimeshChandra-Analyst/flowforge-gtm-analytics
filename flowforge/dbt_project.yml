@@ -40,3 +40,8 @@ models:
     marts:
       +schema: marts
       +materialized: table
+
+seeds:
+  flowforge:
+    +schema: seeds
+  

@@ -183,6 +183,33 @@ already happened to be created retroactively, so revenue history begins when
 the simulation began. Usage was backfilled 30 days. HubSpot and Stripe records
 therefore all share a creation date, which is expected.
 
+**Why usage is stored sparse, not dense.** `int_account_daily_usage` only has
+rows for days where something happened. Health and PQL logic sums over date
+windows, where a missing day naturally contributes zero, so the rows are not
+needed. Dense would mean thousands of rows of zeros that every downstream
+model would have to filter out. Filling gaps for charting is a presentation
+concern and belongs in the mart that feeds the chart.
+
+**Why usage is dated by `occurred_at`, not `ingested_at`.** Around 5% of
+events arrive up to two days late. Business questions are about when usage
+happened. Ingestion time matters for pipeline decisions like what to
+reprocess, not for reporting.
+
+**Why plan details live in a dbt seed.** `plans.csv` maps Stripe price ids to
+plan names, ranks, seat limits and monthly credits. It is small, static,
+manually maintained reference data, and both the subscription model and the
+PQL rule need it, so keeping it in one version controlled place beats
+hardcoding a case statement in two models.
+
+**Why unattributable events are dropped.** Around 3% of events have no account
+domain and are excluded by an inner join in `int_account_daily_usage`. They
+could be reported separately as a data quality metric.
+
+**Why `is_active` is derived once.** Stripe has several statuses (active,
+canceled, past_due, unpaid, trialing). Downstream models only care whether the
+account is paying right now, so that rule is defined once in
+`int_account_subscription` rather than repeated everywhere.
+
 ---
 
 ## Deliberately planted data problems
@@ -242,8 +269,50 @@ drops them, which would hide the most important rows in a health report.
 **Wrong JSON paths never error, they return NULL.** Every parsed column needs a
 `count(*)` versus `count(column)` check before moving on.
 
+**The health model was validated against the hidden archetypes.** Every
+account flagged red was a Skeptic Exec, the archetype designed to go quiet
+before cancelling, and no Champion or Power Solo was ever flagged red. Of the
+five paying Skeptic Execs, four came out red or yellow. The model only ever
+saw credit usage across two 14 day windows and never had access to the
+archetypes.
+
+**The PQL model found 24 leads, all of them Champions.** Zero false positives.
+Champions are the archetype designed to grow, invite teammates and burn
+through credits. Power Solos are excluded by the 50 employee rule and Ghosts
+generate almost no usage, both of which is correct behaviour rather than luck.
+
+**Two 14 day windows have to be equal length.** An earlier version compared
+the last 14 days against a 16 day window, which makes usage look like it
+dropped even when it was flat.
+
+**A case statement cannot reference an alias defined in the same select.**
+The fix is a separate CTE that does the coalescing first, which also keeps
+the health rules readable.
+
 ---
 
+## Known limitations
+
+**Name matching is easier here than in real life.** The fallback match works
+because the simulator writes identical company names to HubSpot and Stripe.
+Real data would have "EmberWorks", "Ember Works AB" and "emberworks" for the
+same company, and would need normalising (lowercase, strip punctuation and
+company suffixes) before matching.
+
+**Active users is approximated from daily aggregates.** The PQL model takes
+`max(active_users)` across 14 days rather than a true distinct count over the
+window, so three people each using the product alone on different days counts
+as one rather than three. Counting distinct users from the raw events would be
+more accurate.
+
+**Accounts younger than 28 days have an empty comparison window**, so their
+health status is based on incomplete history.
+
+**Revenue history starts when the simulation started.** Stripe does not allow
+backdated billing, so week over week revenue comparisons only become
+meaningful after a few weeks of the daily job running.
+
+---
 ## Scope
 
 ### Version 1
@@ -275,12 +344,12 @@ drops them, which would hide the most important rows in a health report.
 - Seven dbt staging models
 - Daily simulator: usage, upgrades, downgrades, cancellations, new signups
 - GitHub Actions running the whole pipeline every morning
-
-**Next**
-
 - Intermediate models: matching Stripe to HubSpot, subscription periods,
   daily usage per account
 - Marts: revenue movements, account health, PQL list
+
+**Next**
+
 - dbt tests and documentation
 - Reverse ETL into HubSpot
 - Supabase sync and the Lovable front end

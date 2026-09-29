@@ -69,6 +69,18 @@ jobs:
         run: |
           cd flowforge
           dbt run
+      
+      - name: Snapshot subscription history
+        run: |
+          cd flowforge
+          dbt snapshot
+
+      - name: Push results back into HubSpot
+        env:
+          HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp_key.json
+          BQ_PROJECT: ${{ secrets.BQ_PROJECT }}
+        run: python scripts/reverse_etl.py
 
       - name: Run dbt tests
         run: |

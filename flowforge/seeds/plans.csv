@@ -1,0 +1,5 @@
+price_id,plan_name,plan_rank,monthly_price_usd,seat_limit,monthly_credits
+price_1UIXE8I3CMSSHfjNHnB92faL,free,1,0,1,50
+price_1UIXESI3CMSSHfjNcuxPhlgr,pro,2,20,3,500
+price_1UIXHBI3CMSSHfjNyu99GHTu,team,3,100,10,3000
+price_1UIXIOI3CMSSHfjNUkjitlVi,enterprise,4,1000,50,20000
