@@ -33,6 +33,10 @@ invoices as (
     select * from {{ ref('stg_stripe__invoices') }}
 ),
 
+account_contact as (
+    select * from {{ ref('stg_hubspot__contacts') }}
+),
+
 -- Usage over the last 14 days, and how that compares to the 14 before.
 usage_windows as (
     select
@@ -59,6 +63,24 @@ lifetime_revenue as (
     from invoices
     where payment_status = 'paid'
     group by customer_id
+),
+
+contacts_ranked as (
+    select
+        email,
+        email_domain,
+        concat(first_name, ' ', last_name) as contact_name,
+        row_number() over (
+            partition by email_domain
+            order by created_at asc
+        ) as rn
+    from account_contact
+),
+
+primary_contact as (
+    select email, email_domain, contact_name
+    from contacts_ranked
+    where rn = 1
 ),
 
 combined as (
@@ -108,7 +130,11 @@ combined as (
         -- so they get 'not_scored' rather than a null nobody can interpret.
         coalesce(h.health_status, 'not_scored') as health_status,
         p.hubspot_company_id is not null as is_pql,
-        coalesce(p.signal_count, 0) as pql_signal_count
+        coalesce(p.signal_count, 0) as pql_signal_count,
+
+        -- contact info
+        c.email as contact_email,
+        c.contact_name
 
     from identity i
     left join subscriptions s on i.hubspot_company_id = s.hubspot_company_id
@@ -116,6 +142,7 @@ combined as (
     left join lifetime_revenue r on s.customer_id = r.customer_id
     left join health h on i.hubspot_company_id = h.hubspot_company_id
     left join pqls p on i.hubspot_company_id = p.hubspot_company_id
+    left join primary_contact c on i.company_domain = c.email_domain
 ),
 
 final as (
@@ -130,7 +157,8 @@ final as (
             when plan_name = 'free' and credits_used_14d = 0 then 'dormant free'
             when plan_name = 'free' then 'active free'
             else 'healthy paying'
-        end as account_segment
+        end as account_segment,
+        current_timestamp() as refreshed_at
     from combined
 )
 
