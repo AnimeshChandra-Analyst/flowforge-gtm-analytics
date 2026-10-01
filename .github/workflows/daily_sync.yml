@@ -65,16 +65,16 @@ jobs:
           BQ_RAW_DATASET: ${{ secrets.BQ_RAW_DATASET }}
         run: python scripts/extract.py
 
-      - name: Run dbt models
-        run: |
-          cd flowforge
-          dbt run
-      
       - name: Snapshot subscription history
         run: |
           cd flowforge
           dbt snapshot
 
+      - name: Run dbt models
+        run: |
+          cd flowforge
+          dbt run
+      
       - name: Push results back into HubSpot
         env:
           HUBSPOT_TOKEN: ${{ secrets.HUBSPOT_TOKEN }}
