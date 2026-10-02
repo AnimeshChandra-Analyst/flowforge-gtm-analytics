@@ -153,10 +153,10 @@ THE DATA TEAM
   dbt run             staging -> intermediate -> marts
   dbt snapshot        records subscription changes over time
   reverse_etl.py      health, usage and PQL deals back into HubSpot
-  Lovable app         the front end people actually use
+  Lovable app         the front end, reading BigQuery directly
 
 DAILY, VIA GITHUB ACTIONS
-  simulate -> extract -> dbt run -> dbt snapshot -> reverse ETL -> dbt test
+  simulate -> extract -> dbt snapshot -> dbt run -> reverse ETL -> dbt test
 ```
 
 ### BigQuery layout
@@ -182,17 +182,17 @@ GCP project: `flowforge-509421`, location EU.
 
 **Intermediate** (3 views):
 
-- `int_account_identity` — which HubSpot company, Stripe customer and product
+- `int_account_identity`: which HubSpot company, Stripe customer and product
   domain are the same business
-- `int_account_daily_usage` — one row per account per day
-- `int_account_subscription` — current plan, price and status per account
+- `int_account_daily_usage`: one row per account per day
+- `int_account_subscription`: current plan, price and status per account
 
 **Marts** (4 tables):
 
-- `mart_account_health` — red / yellow / green per paying account
-- `mart_product_qualified_leads` — accounts worth a sales call
-- `mart_revenue_movements` — weekly new, expansion, contraction and churn
-- `mart_account_overview` — one row per account with everything: plan, MRR,
+- `mart_account_health`: red / yellow / green per paying account
+- `mart_product_qualified_leads`: accounts worth a sales call
+- `mart_revenue_movements`: weekly new, expansion, contraction and churn
+- `mart_account_overview`: one row per account with everything: plan, MRR,
   usage, limits, lifetime revenue, tenure, health, PQL status and segment.
   This is what the app reads, and what any summary is aggregated from.
 
@@ -201,6 +201,43 @@ time, so "what was this account paying last week?" is answerable.
 
 **Seed**: `plans.csv` maps Stripe price ids to plan names, ranks, seat limits
 and monthly credits.
+
+---
+
+## The app: FlowForge Account Hub
+
+A three page internal tool built in Lovable, reading live from BigQuery
+through Lovable's native connector. There is no copy of the data and no sync
+step: whatever the pipeline produced that morning is what the app shows.
+
+**Accounts.** The landing page. Four KPI cards (MRR with ARR, active paying
+accounts, PQLs, accounts at risk), each clickable to filter the table. Search,
+filters for segment, health, plan, PQL only and active in the last 14 days,
+and a table of every account with health pills, credit usage bars and a copy
+button on each contact email.
+
+**Account detail.** Everything about one account: health, plan and MRR in the
+header, four headline stats, a 30 day daily usage chart with toggles for
+credits, prompt runs and sessions, and grouped sections for contact, limits,
+sales, usage, revenue and company.
+
+**Revenue.** Weekly new, expansion, contraction and churned MRR as bars above
+and below zero, with ending MRR as a line, plus the figures in a table.
+
+### How it reads the data
+
+- Only ever runs SELECT statements
+- Always names specific columns, never `select *`, since BigQuery bills by
+  bytes scanned
+- Every query carries a `maximumBytesBilled` cap, so a runaway query fails
+  rather than costing money
+- The 255 row account table is fetched once and filtered in the browser, so
+  searching and filtering are instant and cost nothing
+- Days since last active is calculated in the app from `last_active_date`,
+  rather than read from a precomputed column. The date is a fact that never
+  goes stale. "How many days ago" depends on today, so precomputing it in dbt
+  freezes it until the next pipeline run
+- No sample or fallback data anywhere. Sparse charts are real
 
 ---
 
@@ -239,6 +276,18 @@ yesterday's state is overwritten and gone. A dbt snapshot separately records
 what changed, closing off the old row with a valid_to date and opening a new
 one. Without it, revenue expansion and contraction would be unknowable, since
 an account's previous price disappears the moment they upgrade.
+
+**Why the snapshot runs before `dbt run`.** The snapshot reads
+`int_account_subscription`, which is a view, and views always read live data.
+So the snapshot can run before the models rebuild and still see today's
+changes. Running it afterwards meant today's upgrades showed in the Accounts
+MRR immediately but only reached the revenue model the next day, so the two
+pages disagreed by a day.
+
+**Why the app reads BigQuery directly.** The original plan was to sync marts
+into Supabase for the app. Lovable turned out to have a native BigQuery
+connector, which removed a whole step and means the app can never drift out
+of date with the warehouse. One fewer moving part is one fewer thing to break.
 
 **Why raw JSON in the warehouse (ELT, not ETL).** The extractor stays dumb: it
 copies records whole into a `raw_json` column and adds an `extracted_at`
@@ -395,6 +444,31 @@ days of backfilled usage but no chance to act on it until the simulator
 started, so every account already over its limits rolled the dice at once.
 It settles from the second day.
 
+**The revenue model double counted every upgrade, and the app exposed it.**
+The Revenue page showed ending MRR of $4,380 while the Accounts page showed
+$3,820, a gap of exactly the $560 of expansion that week. The model counted
+new MRR at each subscription's current price, so an account that started on
+Pro and upgraded to Team was counted as $100 of new revenue, and then the
+snapshot added the $80 upgrade on top. New MRR now uses the price a
+subscription had the first time the snapshot recorded it, and free to paid
+conversions count as new rather than expansion. Ending MRR now reconciles
+exactly with total current MRR. That reconciliation is the check worth keeping
+as a test, since two pages showing different totals is the kind of thing
+nobody notices for months.
+
+**Growth is coming from existing customers.** In the week of 28 September,
+$1,040 of the MRR increase came from upgrades and only $160 from new
+customers. That is what a product led business looks like, with accounts
+growing into the product rather than sales bringing in new logos, and it is
+the Champion behaviour designed into the simulator being picked up from the
+outside.
+
+**GitHub Actions cron is best effort.** The workflow is scheduled for 05:00
+UTC but actually runs anywhere between late morning and early afternoon
+Stockholm time. Scheduled jobs are queued, and delays of several hours are
+common, especially at the top of the hour. Fine here. For anything time
+critical a proper scheduler would be the right tool.
+
 ---
 
 ## Current state
@@ -413,6 +487,9 @@ As of 29 September 2026, a few days into the daily simulation:
 
 230 accounts, $2,720 MRR, and 45% of the customer base signed up and never
 came back, which is the Ghost archetype behaving exactly as designed.
+
+By 2 October: 255 accounts, 72 paying, $3,920 MRR, 24 PQLs and one account at
+risk, with the Revenue and Accounts pages reconciling to the same total.
 
 ---
 
@@ -448,6 +525,19 @@ figure once it has enough history.
 to team in a single day, the snapshot would capture free to team and lose the
 middle step. Not an issue at this cadence, but it is why snapshot frequency
 matters in real systems.
+
+**The app's BigQuery connection runs as the project owner.** It connects with
+the owner's Google account, so it technically has write access even though the
+app only ever runs SELECT queries. The cleaner setup is a separate identity
+with only BigQuery Data Viewer and Job User, so IAM itself blocks writes.
+Overkill for a single person project, but it would be the right call at work.
+
+**`credit_usage_pct` is null for accounts with no recent usage**, because the
+division happens before the zero fill. The app displays it as 0.0%, but the
+proper fix is coalescing before the divide in `mart_account_overview`.
+
+**Today shows as zero on the usage chart** until the pipeline runs, since the
+day isn't over. The chart should end at yesterday or mark today as partial.
 
 ---
 
@@ -489,11 +579,14 @@ matters in real systems.
   deal creation for new PQLs with duplicate prevention
 - Health and PQL models validated against the hidden archetypes
 - GitHub Actions running the whole pipeline every morning
+- Revenue double count found and fixed, with both pages reconciling
+- FlowForge Account Hub, a three page Lovable app reading BigQuery live
 
 **Next**
 
-- dbt tests and documentation
-- The Lovable front end
+- Publish the app
+- dbt tests and documentation, including a test that ending MRR equals
+  total current MRR
 - The simulator playing the sales rep, so deals move through the pipeline
 
 ---
@@ -529,12 +622,13 @@ python scripts/generate_usage.py    # once
 # then daily, in this order
 python scripts/daily_simulate.py
 python scripts/extract.py
-cd flowforge && dbt run && dbt snapshot && dbt test && cd ..
+cd flowforge && dbt snapshot && dbt run && dbt test && cd ..
 python scripts/reverse_etl.py
 ```
 
-Order matters: the snapshot and reverse ETL both read models, so `dbt run` has
-to come first.
+Order matters: the snapshot reads views, so it can run first and capture
+today's changes before the marts rebuild. Reverse ETL reads the marts, so it
+has to come after `dbt run`.
 
 ## Stack
 
