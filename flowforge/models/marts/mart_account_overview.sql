@@ -41,6 +41,7 @@ account_contact as (
 usage_windows as (
     select
         hubspot_company_id,
+        sum(case when usage_date >= current_date() - 30 then total_credits_used else 0 end) as credits_used_30d,
         sum(case when usage_date >= current_date() - 14 then total_credits_used else 0 end) as credits_used_14d,
         sum(case when usage_date >= current_date() - 28
                   and usage_date < current_date() - 14 then total_credits_used else 0 end) as credits_previous_14d,
@@ -62,6 +63,7 @@ lifetime_revenue as (
         count(*) as invoices_paid
     from invoices
     where payment_status = 'paid'
+        and amount_paid_usd > 0
     group by customer_id
 ),
 
@@ -119,8 +121,9 @@ combined as (
         date_diff(current_date(), u.last_active_date, day) as days_since_last_active,
 
         -- How close they are to their limits. This is what drives upgrades.
-        round(safe_divide(u.credits_used_14d, s.monthly_credits) * 100, 1) as credit_usage_pct,
-        round(safe_divide(u.active_users_14d, s.seat_limit) * 100, 1) as seat_usage_pct,
+        coalesce(u.credits_used_30d, 0) as credits_used_30d,
+        round(safe_divide(coalesce(u.credits_used_30d, 0), s.monthly_credits) * 100, 1) as credit_usage_pct,
+        round(safe_divide(coalesce(u.active_users_14d, 0), s.seat_limit) * 100, 1) as seat_usage_pct,
 
         -- Money
         coalesce(r.lifetime_revenue_usd, 0) as lifetime_revenue_usd,
