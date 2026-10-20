@@ -37,7 +37,7 @@ from seed_world import (
     create_company,
     create_contact,
     create_stripe_customer,
-    make_company_name,
+    make_unique_company_name,
     make_domain,
     pick_archetype,
 )
@@ -246,10 +246,7 @@ def create_new_signup(hubspot: HubSpot, used_names: set) -> dict:
     archetype = pick_archetype()
     spec = ARCHETYPES[archetype]
 
-    name = make_company_name()
-    while name in used_names:
-        name = make_company_name()
-    used_names.add(name)
+    name = make_unique_company_name(used_names)
 
     first_name = fake.first_name()
     last_name = fake.last_name()

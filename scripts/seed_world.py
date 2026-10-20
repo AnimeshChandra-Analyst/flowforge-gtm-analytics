@@ -11,10 +11,6 @@ For each company it:
   4. creates the same company as a customer in Stripe, on that plan
   5. records the archetype in BigQuery (the "answer key")
 
-IMPORTANT: run this ONCE. If it fails halfway, clean up before rerunning
-(see cleanup_seed.py) or you'll end up with duplicates.
-
-Start with N_COMPANIES = 5 to check it works, then bump it to 200.
 """
 
 import os
@@ -36,7 +32,7 @@ load_dotenv()
 
 # ── Settings ─────────────────────────────────────────────────────────────────
 
-N_COMPANIES = 200  # use 5 while testing. Max is 420 (the name combinations).
+N_COMPANIES = 200  # use 5 while testing.
 
 # Fixing the random seed means you get the same "random" results every run.
 # Useful while testing, so a rerun is predictable.
@@ -94,7 +90,8 @@ PLAN_PRICE_ENV = {
 # Faker's built-in company names look like law firms ("Guzman, Hoffman and
 # Baldwin"), which doesn't suit a customer base of AI app builders. So we
 # build our own from two word lists instead.
-# 28 x 15 = 420 possible names, comfortably more than the 200 we need.
+# 28 x 15 = 420 possible combos. Once those run out, make_unique_company_name
+# adds a number (e.g. NordAgency2), so the daily job never runs out of names.
 NAME_PARTS_A = [
     "Nord", "Volt", "Pixel", "Hyper", "Lumen", "Flux", "Orbit", "Basil",
     "Corner", "Fern", "Tide", "Atlas", "Kite", "Maple", "Quartz", "Drift",
@@ -115,6 +112,34 @@ random.seed(RANDOM_SEED)
 def make_company_name() -> str:
     """e.g. 'NordLabs', 'PixelStudio', 'TideVentures'."""
     return f"{random.choice(NAME_PARTS_A)}{random.choice(NAME_PARTS_B)}"
+
+
+# How many random combos to try before falling back to a number suffix.
+MAX_NAME_TRIES = 50
+
+
+def make_unique_company_name(used_names: set) -> str:
+    """A company name nobody has yet, and adds it to used_names.
+
+    Tries random combos first. If they're all (or nearly all) taken, it adds
+    a number instead, e.g. 'NordAgency2'. That second loop always ends,
+    because the number keeps going up until it finds a free one. The old
+    version just kept rolling random combos, which hangs forever once all
+    420 are used.
+    """
+    for _ in range(MAX_NAME_TRIES):
+        name = make_company_name()
+        if name not in used_names:
+            used_names.add(name)
+            return name
+
+    base = make_company_name()
+    n = 2
+    while f"{base}{n}" in used_names:
+        n += 1
+    name = f"{base}{n}"
+    used_names.add(name)
+    return name
 
 
 # ── Clients ──────────────────────────────────────────────────────────────────
@@ -154,10 +179,7 @@ def build_profile(used_names: set) -> dict:
     spec = ARCHETYPES[archetype]
 
     # Keep company names unique so we don't confuse ourselves later.
-    name = make_company_name()
-    while name in used_names:
-        name = make_company_name()
-    used_names.add(name)
+    name = make_unique_company_name(used_names)
 
     first_name = fake.first_name()
     last_name = fake.last_name()
