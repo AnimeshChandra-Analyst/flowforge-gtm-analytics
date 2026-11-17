@@ -107,9 +107,9 @@ defend when someone asks why a weighting is what it is.
 
 For paying customers only:
 
-- **Red**: no activity in 14 days, or usage down 50% versus the previous 14
-  days
-- **Yellow**: usage down 25% or more
+- **Red**: no activity in 14 days, or usage down by more than half versus the
+  previous 14 days
+- **Yellow**: usage down by more than 25%
 - **Green**: everything else
 
 Rules rather than a model, because customer success needs to know *why* an
@@ -206,6 +206,8 @@ and monthly credits.
 
 ## The app: FlowForge Account Hub
 
+Live at **https://flowforge-account-hub.lovable.app**
+
 A three page internal tool built in Lovable, reading live from BigQuery
 through Lovable's native connector. There is no copy of the data and no sync
 step: whatever the pipeline produced that morning is what the app shows.
@@ -231,7 +233,7 @@ and below zero, with ending MRR as a line, plus the figures in a table.
   bytes scanned
 - Every query carries a `maximumBytesBilled` cap, so a runaway query fails
   rather than costing money
-- The 255 row account table is fetched once and filtered in the browser, so
+- The account table (a few hundred rows) is fetched once and filtered in the browser, so
   searching and filtering are instant and cost nothing
 - Days since last active is calculated in the app from `last_active_date`,
   rather than read from a precomputed column. The date is a fact that never
@@ -348,7 +350,7 @@ existing deals and skip accounts that already have one, instead of creating a
 fresh deal every morning for the same 24 PQLs.
 
 **Why company updates are batched.** HubSpot accepts 100 records per batch
-call, so 230 accounts is 3 API calls rather than 230. Faster, and much kinder
+call, so around 550 accounts is 6 API calls rather than 550. Faster, and much kinder
 to the rate limit.
 
 ---
@@ -457,7 +459,7 @@ as a test, since two pages showing different totals is the kind of thing
 nobody notices for months.
 
 **Growth is coming from existing customers.** In the week of 28 September,
-$1,040 of the MRR increase came from upgrades and only $160 from new
+$1,680 of the MRR increase came from upgrades and only $320 from new
 customers. That is what a product led business looks like, with accounts
 growing into the product rather than sales bringing in new logos, and it is
 the Champion behaviour designed into the simulator being picked up from the
@@ -468,6 +470,54 @@ UTC but actually runs anywhere between late morning and early afternoon
 Stockholm time. Scheduled jobs are queued, and delays of several hours are
 common, especially at the top of the hour. Fine here. For anything time
 critical a proper scheduler would be the right tool.
+
+**Credit usage can go over 100%, on purpose.** FlowForge has soft limits: going
+over a plan's credits isn't blocked, it just makes an upgrade likely. Early on
+the app compared 14 days of usage against a monthly allowance, which mixed two
+time spans. It now compares 30 days against the monthly allowance, matching
+how the simulator decides upgrades, and shows "Over limit" with a capped bar.
+The PQL rule still uses 14 days on purpose: burning 80% of a month's credits
+in two weeks is a stronger signal.
+
+**Lifetime revenue was $0 on many paying accounts, and that's correct.** Most
+paying accounts started on Free and upgraded. Stripe adds the prorated
+difference to the next invoice instead of charging straight away, so they
+hadn't paid anything yet. MRR is committed revenue, lifetime revenue is cash
+collected, and they're supposed to differ. $0 invoices from Free plans no
+longer count as paid.
+
+**An unpushed change broke the app.** A new `credits_used_30d` column was built
+locally and the app started using it, but the change was never pushed. The
+next scheduled run rebuilt the mart from the older code on GitHub, the column
+disappeared, and the app failed with `Unrecognized name: credits_used_30d`.
+Fixed by pushing and rebuilding locally, not by rerunning the workflow, since
+that would have simulated a second day. GitHub is what the pipeline runs, so
+changes get pushed as soon as they check out.
+
+**The company name pool ran out.** Names are built from two word lists, which
+gives 420 combinations. With 5 to 10 signups a day, the generator would have
+looped forever once every name was taken. It now tries random combinations
+first and falls back to adding a number, like `AsterAI2`, which always ends.
+
+**Zero accounts at risk turned out to be mostly real, with one gap.** A few
+weeks in, the health score showed no red accounts. Checking against the answer
+key: 8 of 9 Skeptic Execs had already cancelled, and the paying base was 47
+Champions, 69 Power Solos and 1 Skeptic Exec, so there wasn't much risk left
+to flag. But one paying account was using about 3% of its plan and still
+showed green, because the health rule only catches drops. A customer who was
+always quiet never looks like they dropped. Adding a "usage below 15% of the
+plan" rule, the same line the simulator uses for cancellations, is next.
+
+**The pipeline failed for five days when the Google Cloud trial ended.** From
+10 to 14 November every run failed with `403 Billing has not been enabled for
+this project`. Without billing attached, the project dropped into BigQuery's
+sandbox mode, which caps tables at 60 days, so appends to the usage events
+table were rejected. The simulator had already made changes in Stripe and
+HubSpot before crashing each day, so the source systems and the answer key
+drifted apart. Fixed by attaching billing with a budget alert and checking no
+table had picked up an expiry date. The five day gap in usage also makes
+health look worse than reality for a couple of weeks afterwards: an outage
+shows up in the data as a fake change in customer behaviour.
 
 ---
 
@@ -490,6 +540,10 @@ came back, which is the Ghost archetype behaving exactly as designed.
 
 By 2 October: 255 accounts, 72 paying, $3,920 MRR, 24 PQLs and one account at
 risk, with the Revenue and Accounts pages reconciling to the same total.
+
+By 23 October: 420 accounts, 117 paying, 22 PQLs and no accounts at risk (see
+"Zero accounts at risk" above for why). By mid November the simulation had
+passed 550 accounts.
 
 ---
 
@@ -532,9 +586,25 @@ app only ever runs SELECT queries. The cleaner setup is a separate identity
 with only BigQuery Data Viewer and Job User, so IAM itself blocks writes.
 Overkill for a single person project, but it would be the right call at work.
 
-**`credit_usage_pct` is null for accounts with no recent usage**, because the
-division happens before the zero fill. The app displays it as 0.0%, but the
-proper fix is coalescing before the divide in `mart_account_overview`.
+**Health only catches drops, not accounts that were always quiet.** See "Zero
+accounts at risk" above.
+
+**The two health windows are 15 and 14 days.** `>= current_date() - 14`
+includes today, so the recent window is one day longer than the previous one.
+Small, but it nudges accounts towards green. Both should be exactly 14 days.
+
+**The daily simulator isn't safe to rerun.** It appends events and makes
+changes in Stripe and HubSpot, so running it twice in a day doubles that day's
+activity. Rerunning a failed workflow means rerunning it too. The fix is to
+skip the run if today already has events.
+
+**Reverse ETL never closes deals.** A PQL that later churns keeps its open
+deal, and a company with any deal, even Closed Lost, never gets a new one.
+
+**Tests run after reverse ETL.** If a test caught bad data, it would already be
+in HubSpot. Switching to `dbt build` before reverse ETL fixes that.
+
+**Usage has a gap from 10 to 14 November** from the billing outage.
 
 **Today shows as zero on the usage chart** until the pipeline runs, since the
 day isn't over. The chart should end at yesterday or mark today as partial.
@@ -582,11 +652,19 @@ day isn't over. The chart should end at yesterday or mark today as partial.
 - Revenue double count found and fixed, with both pages reconciling
 - FlowForge Account Hub, a three page Lovable app reading BigQuery live
 
+- App published at https://flowforge-account-hub.lovable.app
+- Credit usage on 30 days, soft limits, $0 invoices excluded
+- Company name generator that can't run out
+- Recovered from the November billing outage
+
 **Next**
 
-- Publish the app
 - dbt tests and documentation, including a test that ending MRR equals
   total current MRR
+- `dbt build` before reverse ETL, so a failed test stops bad data reaching
+  HubSpot
+- A "usage below 15% of the plan" rule in the health score
+- Make the daily simulator safe to rerun, and pin package versions
 - The simulator playing the sales rep, so deals move through the pipeline
 
 ---
@@ -601,7 +679,7 @@ day isn't over. The chart should end at yesterday or mark today as partial.
 | `scripts/daily_simulate.py` | Moves the world forward one day. |
 | `scripts/extract.py` | Pulls HubSpot and Stripe into BigQuery. |
 | `scripts/reverse_etl.py` | Pushes marts back into HubSpot. |
-| `scripts/peek_json.py` | Pretty prints one raw JSON record for inspection. |
+| `scripts/trial_script.py` | The first smoke test: one company in HubSpot, one customer in Stripe. |
 
 ## Running it locally
 
