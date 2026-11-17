@@ -523,7 +523,29 @@ shows up in the data as a fake change in customer behaviour.
 
 ## Current state
 
-As of 29 September 2026, a few days into the daily simulation:
+As of 17 November 2026, about seven weeks into the daily simulation:
+
+| Segment | Accounts | Current MRR |
+|---|---|---|
+| Healthy paying | 96 | $3,640 |
+| Watch | 45 | $3,380 |
+| Sales opportunity (PQL) | 29 | $2,160 |
+| At risk | 6 | $440 |
+| Active free | 119 | $0 |
+| Dormant free | 300 | $0 |
+| Churned | 13 | $0 |
+
+608 accounts and $9,620 MRR, up from 230 accounts and $2,720 on 29 September.
+
+The watch and at risk numbers are higher than usual right now. The pipeline
+was down from 10 to 14 November (see the billing outage above), so there's a
+five day gap in usage. Health compares the last 14 days with the 14 before, so
+the gap looks like a drop in usage for a couple of weeks, even though nothing
+changed. It should settle by early December.
+
+### Early snapshot
+
+29 September 2026, a few days into the daily simulation:
 
 | Segment | Accounts | MRR |
 |---|---|---|
@@ -535,15 +557,8 @@ As of 29 September 2026, a few days into the daily simulation:
 | Active free | 55 | $0 |
 | Dormant free | 103 | $0 |
 
-230 accounts, $2,720 MRR, and 45% of the customer base signed up and never
-came back, which is the Ghost archetype behaving exactly as designed.
-
-By 2 October: 255 accounts, 72 paying, $3,920 MRR, 24 PQLs and one account at
-risk, with the Revenue and Accounts pages reconciling to the same total.
-
-By 23 October: 420 accounts, 117 paying, 22 PQLs and no accounts at risk (see
-"Zero accounts at risk" above for why). By mid November the simulation had
-passed 550 accounts.
+230 accounts, $2,720 MRR. 45% of accounts signed up and never came back, which
+is the Ghost archetype behaving exactly as designed.
 
 ---
 
