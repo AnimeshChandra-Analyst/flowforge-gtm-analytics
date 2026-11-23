@@ -9,60 +9,74 @@
 -- The four movements always reconcile: summing them over all weeks gives
 -- today's total MRR. If ending_mrr for the latest week doesn't equal
 -- sum(current_mrr_usd) in mart_account_overview, something is wrong.
+-- The test tests/assert_revenue_reconciles.sql checks this every run.
 --
--- An earlier version counted new MRR at each subscription's CURRENT price,
--- then counted upgrades again as expansion, which double counted every
--- upgrade. New MRR now uses the price the subscription had the first time
--- the snapshot saw it.
+-- Everything here comes from the snapshot, not from current subscriptions.
+-- Stripe stops listing cancelled subscriptions about 30 days after they're
+-- cancelled, so current subscriptions forget them, but the snapshot keeps
+-- every version. An earlier version took starts and cancellations from
+-- current subscriptions, so when an old cancelled subscription disappeared,
+-- its start and cancellation vanished but its upgrades stayed, and ending
+-- MRR slowly drifted above the real total.
+--
+-- An even earlier version counted new MRR at each subscription's CURRENT
+-- price, then counted upgrades again as expansion, which double counted
+-- every upgrade. New MRR uses the price from the first snapshot row.
 
-with subscriptions as (
-    select * from {{ ref('int_account_subscription') }}
-),
-
-snapshot_history as (
+with snapshot_history as (
     select * from {{ ref('snap_subscriptions') }}
 ),
 
--- The price each subscription had the first time we recorded it.
-first_seen_ranked as (
+-- Every version of every subscription, next to the version before it.
+-- lag() looks back one row within each subscription's history.
+snapshot_ordered as (
     select
         subscription_id,
         monthly_amount_usd,
-        row_number() over (
-            partition by subscription_id
-            order by dbt_valid_from
-        ) as rn
+        is_active,
+        created_at,
+        canceled_at,
+        dbt_valid_from,
+        lag(monthly_amount_usd) over w as previous_amount,
+        lag(is_active) over w as previous_is_active,
+        row_number() over w as rn
     from snapshot_history
+    window w as (partition by subscription_id order by dbt_valid_from)
 ),
 
-first_seen as (
-    select subscription_id, monthly_amount_usd as starting_amount
-    from first_seen_ranked
-    where rn = 1
-),
-
--- Every subscription start, at its starting price. Subscriptions created
--- since the last snapshot run aren't in it yet, so fall back to current.
+-- Every subscription start, at the price it had the first time we saw it.
+-- Subscriptions that were already inactive the first time we saw them get
+-- no start and no cancellation, so they net to zero.
 starts as (
     select
-        date_trunc(date(s.created_at), week(monday)) as week_start,
-        coalesce(f.starting_amount, s.monthly_amount_usd) as amount
-    from subscriptions s
-    left join first_seen f
-        on s.subscription_id = f.subscription_id
+        date_trunc(date(created_at), week(monday)) as week_start,
+        monthly_amount_usd as amount
+    from snapshot_ordered
+    where rn = 1
+      and is_active
 ),
 
--- Every price change the snapshot recorded, next to the price before it.
--- lag() looks back one row within each subscription's history.
+-- Every later version, next to the price before it.
 price_changes as (
     select
         date_trunc(date(dbt_valid_from), week(monday)) as week_start,
         monthly_amount_usd as new_amount,
-        lag(monthly_amount_usd) over (
-            partition by subscription_id
-            order by dbt_valid_from
-        ) as previous_amount
-    from snapshot_history
+        previous_amount
+    from snapshot_ordered
+    where rn > 1
+),
+
+-- Every time a subscription went from active to not active. The price stays
+-- on a cancelled subscription, so this is what they were paying when they
+-- left.
+cancellations as (
+    select
+        date_trunc(date(coalesce(canceled_at, dbt_valid_from)), week(monday)) as week_start,
+        monthly_amount_usd as amount
+    from snapshot_ordered
+    where previous_is_active
+      and not is_active
+      and monthly_amount_usd > 0
 ),
 
 -- One row per movement, all in the same shape so they can be stacked.
@@ -105,21 +119,18 @@ movements as (
 
     union all
 
-    -- Cancellations. The price stays on a cancelled subscription, so this
-    -- is what they were paying when they left.
+    -- Cancellations
     select
-        date_trunc(date(canceled_at), week(monday)),
+        week_start,
         0.0,
         0.0,
         0.0,
-        monthly_amount_usd,
+        amount,
         0,
         0,
         0,
         1
-    from subscriptions
-    where canceled_at is not null
-      and monthly_amount_usd > 0
+    from cancellations
 ),
 
 -- Every week from the first subscription to now, so quiet weeks still
