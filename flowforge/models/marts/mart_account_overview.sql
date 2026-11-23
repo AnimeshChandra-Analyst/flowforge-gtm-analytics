@@ -100,7 +100,7 @@ combined as (
         s.plan_rank,
         s.monthly_amount_usd,
         case when s.is_active then s.monthly_amount_usd else 0 end as current_mrr_usd,
-        s.monthly_amount_usd * 12 as annual_run_rate_usd,
+        case when s.is_active then s.monthly_amount_usd * 12 else 0 end as annual_run_rate_usd,
         s.subscription_status,
         s.is_active,
         s.created_at as subscription_started_at,
@@ -153,7 +153,7 @@ final as (
         *,
         -- A single label that answers "what should we do about this account?"
         case
-            when not is_active then 'churned'
+            when not coalesce(is_active, false) then 'churned'
             when is_pql then 'sales opportunity'
             when health_status = 'red' then 'at risk'
             when health_status = 'yellow' then 'watch'
